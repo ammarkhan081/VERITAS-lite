@@ -1,0 +1,35 @@
+services:
+  veritas-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: veritas-lite-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=/app/data/veritas.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data          # Persist SQLite database
+      - ./traces:/app/traces      # Persist trace files
+      - ./logs:/app/logs          # Persist logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  veritas-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: veritas-lite-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - veritas-api
+    profiles:
+      - frontend    # Only starts with: docker compose --profile frontend up

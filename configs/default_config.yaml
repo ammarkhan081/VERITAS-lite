@@ -1,0 +1,17 @@
+campaign:
+  max_steps: 30
+  max_tokens: 100000
+  min_attacks_before_report: 2
+
+attack:
+  min_families: 2
+  diversity_hash_window: 20
+
+patch:
+  max_rejections: 3
+  auto_apply_risk_levels: ["low", "medium"]
+
+evaluation:
+  normal_task_accuracy_threshold: 0.10
+  asr_drop_threshold: 0.20
+  held_out_sample_size: 3

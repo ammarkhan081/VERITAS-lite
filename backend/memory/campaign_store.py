@@ -40,6 +40,7 @@ _CAMPAIGN_COLUMNS = {
     "total_tokens",
     "human_interventions",
     "report",
+    "error_message",
     "updated_at",
 }
 

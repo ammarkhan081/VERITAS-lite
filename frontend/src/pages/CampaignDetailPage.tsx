@@ -264,7 +264,7 @@ export default function CampaignDetailPage() {
       </section>
 
       {isPaused && <div className="notice notice--warning review-notice"><Shield size={17} aria-hidden="true" /><div><strong>Campaign paused for human review</strong><p>The API does not expose the patch proposal or its details, so this workspace cannot present a reviewable approval decision.</p></div><a className="text-link" href={`${(import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "")}/docs`} target="_blank" rel="noreferrer">API docs <ArrowUpRight size={14} /></a></div>}
-      {campaign.status === "failed" && <div className="notice notice--danger"><ShieldAlert size={16} aria-hidden="true" /><span>The campaign failed. The status endpoint does not include a failure reason.</span></div>}
+      {campaign.status === "failed" && <div className="notice notice--danger"><ShieldAlert size={16} aria-hidden="true" /><span>{campaign.error_message || "The campaign failed without a recorded error message."}</span></div>}
 
       <div className="campaign-tabs" role="group" aria-label="Campaign sections">
         <button type="button" aria-pressed={tab === "evaluation"} onClick={() => setTab("evaluation")}>Evaluation</button>

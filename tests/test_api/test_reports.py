@@ -51,13 +51,13 @@ def _campaign(status="running"):
 
 def test_incomplete_report_returns_400(client):
     campaign_id = _campaign()
-    response = client.get(f"/campaigns/{campaign_id}/report")
+    response = client.get(f"/api/campaigns/{campaign_id}/report")
     assert response.status_code == 400
 
 
 def test_completed_report_includes_human_summary(client):
     campaign_id = _campaign("completed")
-    response = client.get(f"/campaigns/{campaign_id}/report")
+    response = client.get(f"/api/campaigns/{campaign_id}/report")
     assert response.status_code == 200
     assert response.json()["report"]["campaign_id"] == campaign_id
     assert "ASR dropped" in response.json()["summary"]
@@ -80,7 +80,7 @@ def test_trace_list_redacts_secrets(client):
         ],
     )
     CampaignStore().save_trace(trace)
-    response = client.get(f"/campaigns/{campaign_id}/traces")
+    response = client.get(f"/api/campaigns/{campaign_id}/traces")
     assert response.status_code == 200
     serialized = response.text
     assert "SESSION_TOKEN_very-secret" not in serialized
@@ -105,7 +105,7 @@ def test_single_trace_is_redacted_and_addressable(client):
         ],
     )
     CampaignStore().save_trace(trace)
-    response = client.get(f"/campaigns/{campaign_id}/traces/{trace.id}")
+    response = client.get(f"/api/campaigns/{campaign_id}/traces/{trace.id}")
     assert response.status_code == 200
     assert response.json()["tool_calls"][0]["args"]["query"] == "[REDACTED]"
 
@@ -133,7 +133,7 @@ def test_metrics_aggregate_campaigns_patches_and_regressions(client):
             replay_info={},
         )
     )
-    response = client.get("/metrics")
+    response = client.get("/api/metrics")
     assert response.status_code == 200
     body = response.json()
     assert body == {
@@ -148,7 +148,7 @@ def test_metrics_aggregate_campaigns_patches_and_regressions(client):
 
 def test_websocket_sends_campaign_update_and_closes_when_complete(client):
     campaign_id = _campaign("completed")
-    with client.websocket_connect(f"/campaigns/{campaign_id}/ws") as websocket:
+    with client.websocket_connect(f"/api/campaigns/{campaign_id}/ws") as websocket:
         update = websocket.receive_json()
     assert update["phase"] == "baseline"
     assert update["asr_before"] == 0.8
@@ -157,5 +157,5 @@ def test_websocket_sends_campaign_update_and_closes_when_complete(client):
 
 def test_missing_trace_returns_404(client):
     campaign_id = _campaign()
-    response = client.get(f"/campaigns/{campaign_id}/traces/trace-missing")
+    response = client.get(f"/api/campaigns/{campaign_id}/traces/trace-missing")
     assert response.status_code == 404

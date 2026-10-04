@@ -16,10 +16,11 @@ def no_campaign_llm(monkeypatch):
         return None
 
     monkeypatch.setattr("backend.api.routes.campaigns._run_campaign_async", fake_worker)
+    monkeypatch.setattr("backend.api.routes.campaigns._require_llm_configuration", lambda: None)
 
 
 def _start(client):
-    return client.post("/campaigns", json={"budget": {"max_steps": 4, "max_tokens": 1000}})
+    return client.post("/api/campaigns", json={"budget": {"max_steps": 4, "max_tokens": 1000}})
 
 
 def test_post_campaign_returns_accepted_id(client):
@@ -35,21 +36,21 @@ def test_campaign_id_prefix(client):
 
 def test_get_valid_campaign_status(client):
     campaign_id = _start(client).json()["campaign_id"]
-    response = client.get(f"/campaigns/{campaign_id}")
+    response = client.get(f"/api/campaigns/{campaign_id}")
     assert response.status_code == 200
     assert response.json()["status"] == "running"
     assert response.json()["campaign_id"] == campaign_id
 
 
 def test_get_invalid_campaign_returns_404(client):
-    response = client.get("/campaigns/campaign-missing")
+    response = client.get("/api/campaigns/campaign-missing")
     assert response.status_code == 404
 
 
 def test_list_campaigns_is_paginated(client):
     for _ in range(3):
         _start(client)
-    response = client.get("/campaigns?page=2&limit=2")
+    response = client.get("/api/campaigns?page=2&limit=2")
     assert response.status_code == 200
     assert response.json()["page"] == 2
     assert response.json()["limit"] == 2
@@ -58,21 +59,21 @@ def test_list_campaigns_is_paginated(client):
 
 
 def test_delete_missing_campaign_returns_404(client):
-    assert client.delete("/campaigns/campaign-missing").status_code == 404
+    assert client.delete("/api/campaigns/campaign-missing").status_code == 404
 
 
 def test_running_campaign_can_be_cancelled(client):
     campaign_id = _start(client).json()["campaign_id"]
-    response = client.delete(f"/campaigns/{campaign_id}")
+    response = client.delete(f"/api/campaigns/{campaign_id}")
     assert response.status_code == 200
     assert response.json()["status"] == "cancelled"
-    assert client.get(f"/campaigns/{campaign_id}").json()["status"] == "cancelled"
+    assert client.get(f"/api/campaigns/{campaign_id}").json()["status"] == "cancelled"
 
 
 def test_completed_campaign_cannot_be_cancelled(client):
     campaign_id = _start(client).json()["campaign_id"]
     get_campaign_store().update_campaign(campaign_id, status="completed")
-    response = client.delete(f"/campaigns/{campaign_id}")
+    response = client.delete(f"/api/campaigns/{campaign_id}")
     assert response.status_code == 400
 
 
@@ -109,11 +110,11 @@ def test_delete_campaign_record_removes_campaign_and_related_rows(client):
     )
     conn.commit()
 
-    response = client.delete(f"/campaigns/{campaign_id}/record")
+    response = client.delete(f"/api/campaigns/{campaign_id}/record")
 
     assert response.status_code == 200
     assert response.json() == {"campaign_id": campaign_id, "deleted": True}
-    assert client.get(f"/campaigns/{campaign_id}").status_code == 404
+    assert client.get(f"/api/campaigns/{campaign_id}").status_code == 404
     for table in ("attacks", "traces", "patches", "regression_tests", "held_out_attacks"):
         assert conn.execute(
             f"SELECT COUNT(*) FROM {table} WHERE campaign_id = ?", (campaign_id,)
@@ -122,19 +123,19 @@ def test_delete_campaign_record_removes_campaign_and_related_rows(client):
 
 def test_running_campaign_record_cannot_be_deleted(client):
     campaign_id = _start(client).json()["campaign_id"]
-    response = client.delete(f"/campaigns/{campaign_id}/record")
+    response = client.delete(f"/api/campaigns/{campaign_id}/record")
     assert response.status_code == 409
-    assert client.get(f"/campaigns/{campaign_id}").json()["status"] == "running"
+    assert client.get(f"/api/campaigns/{campaign_id}").json()["status"] == "running"
 
 
 def test_delete_missing_campaign_record_returns_404(client):
-    assert client.delete("/campaigns/campaign-missing/record").status_code == 404
+    assert client.delete("/api/campaigns/campaign-missing/record").status_code == 404
 
 
 def test_resume_requires_paused_campaign(client):
     campaign_id = _start(client).json()["campaign_id"]
     response = client.post(
-        f"/campaigns/{campaign_id}/resume", json={"approved": True}
+        f"/api/campaigns/{campaign_id}/resume", json={"approved": True}
     )
     assert response.status_code == 400
 
@@ -145,7 +146,7 @@ def test_resume_invokes_graph_for_paused_campaign(client):
     )
     get_campaign_store().update_campaign(campaign_id, status="paused")
     response = client.post(
-        f"/campaigns/{campaign_id}/resume",
+        f"/api/campaigns/{campaign_id}/resume",
         json={"approved": True, "comment": "looks good"},
     )
     assert response.status_code == 200
@@ -154,25 +155,26 @@ def test_resume_invokes_graph_for_paused_campaign(client):
 
 
 def test_health_is_healthy_with_empty_campaign_table(client):
-    response = client.get("/health")
+    response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
 
 def test_post_campaign_without_body_is_validation_error(client):
-    assert client.post("/campaigns").status_code == 422
+    assert client.post("/api/campaigns").status_code == 422
 
 
 def test_docs_are_registered(client):
     assert client.get("/docs").status_code == 200
 
 
-def test_graph_compilation_wires_person2_agents_and_person3_evaluation(isolated_database):
+@pytest.mark.asyncio
+async def test_graph_compilation_wires_person2_agents_and_person3_evaluation(isolated_database):
     import backend.orchestration.graph as graph_module
 
     from backend.api.dependencies import get_graph
 
-    graph = get_graph()
+    graph = await get_graph()
     assert "run_normal_baseline" in graph.nodes
     assert graph_module.node_run_normal_baseline.__module__ == "backend.eval.normal_tasks"
     assert graph_module.node_generate_attacks.__module__ == "backend.agents.red_team"
@@ -218,3 +220,25 @@ async def test_campaign_worker_persists_streamed_metrics_and_hitl_pause():
     assert campaign["normal_acc_before"] == 0.75
     assert campaign["status"] == "paused"
     assert campaign["phase"] == "patch"
+
+
+@pytest.mark.asyncio
+async def test_campaign_worker_persists_failure_reason():
+    campaign_id = CampaignStore().create_campaign(
+        CampaignRequest(sut_descriptor={}, threat_model={}, budget={})
+    )
+
+    class FailingGraph:
+        async def astream(self, initial_state, config=None, stream_mode=None):
+            raise RuntimeError("checkpoint read failed")
+            yield  # Make this method an async generator.
+
+    await _run_campaign_async(
+        campaign_id,
+        StartCampaignRequest(),
+        store=CampaignStore(),
+        graph=FailingGraph(),
+    )
+    campaign = CampaignStore().get_campaign(campaign_id)
+    assert campaign["status"] == "failed"
+    assert campaign["error_message"] == "RuntimeError: checkpoint read failed"

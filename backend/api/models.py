@@ -36,6 +36,7 @@ class CampaignStatusResponse(BaseModel):
     step_count: int = 0
     created_at: str
     updated_at: str | None = None
+    error_message: str | None = None
 
 
 class ResumeRequest(BaseModel):

@@ -15,6 +15,7 @@ application, regression storage) and the deterministic routing functions live he
 
 from __future__ import annotations
 
+import asyncio
 import threading
 from typing import Any, Optional
 from uuid import uuid4
@@ -425,6 +426,10 @@ def build_campaign_graph(checkpointer: Optional[Any] = None) -> CompiledStateGra
 
 _global_checkpointer = None
 _global_checkpointer_context = None
+_global_async_checkpointer = None
+_global_async_checkpointer_context = None
+_global_async_graph = None
+_async_graph_lock: asyncio.Lock | None = None
 _checkpointer_lock = threading.Lock()
 
 def get_compiled_graph() -> CompiledStateGraph:
@@ -445,3 +450,48 @@ def get_compiled_graph() -> CompiledStateGraph:
                 else:
                     _global_checkpointer = MemorySaver()
     return build_campaign_graph(checkpointer=_global_checkpointer)
+
+
+async def get_compiled_graph_async() -> CompiledStateGraph:
+    """Build a graph with an async PostgreSQL saver for async graph execution.
+
+    LangGraph's ``astream``/``ainvoke`` APIs require a checkpointer that
+    implements the async methods. The synchronous ``PostgresSaver`` only
+    implements the sync API and fails before the first node when passed to
+    ``astream``.
+    """
+    global _global_async_checkpointer, _global_async_checkpointer_context
+    global _global_async_graph, _async_graph_lock
+
+    database_url = get_settings().database_url
+    if not database_url.startswith(("postgres://", "postgresql://")):
+        return get_compiled_graph()
+
+    if _global_async_graph is not None:
+        return _global_async_graph
+
+    if _async_graph_lock is None:
+        with _checkpointer_lock:
+            if _async_graph_lock is None:
+                _async_graph_lock = asyncio.Lock()
+
+    async with _async_graph_lock:
+        if _global_async_graph is None:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+            context = AsyncPostgresSaver.from_conn_string(
+                database_url, pipeline=False
+            )
+            checkpointer = await context.__aenter__()
+            try:
+                await checkpointer.setup()
+                graph = build_campaign_graph(checkpointer=checkpointer)
+            except BaseException as exc:
+                await context.__aexit__(type(exc), exc, exc.__traceback__)
+                raise
+
+            _global_async_checkpointer_context = context
+            _global_async_checkpointer = checkpointer
+            _global_async_graph = graph
+
+    return _global_async_graph

@@ -10,7 +10,7 @@ from backend.schemas.models import Phase, ToolCall, Trace, utcnow_iso
 @pytest.fixture(autouse=True)
 def isolated_database(tmp_path, monkeypatch):
     """Give every test its own SQLite file and fresh cached singletons."""
-    from backend.api.dependencies import get_campaign_store, get_graph, get_regression_store
+    from backend.api.dependencies import get_campaign_store, get_regression_store
     from backend.core.config import get_settings
     from backend.memory.db import reset_db
     import backend.orchestration.graph as graph_module
@@ -20,9 +20,14 @@ def isolated_database(tmp_path, monkeypatch):
         get_settings.cache_clear()
         get_campaign_store.cache_clear()
         get_regression_store.cache_clear()
-        get_graph.cache_clear()
         graph_module._default_campaign_store = None
         graph_module._default_regression_store = None
+        graph_module._global_checkpointer = None
+        graph_module._global_checkpointer_context = None
+        graph_module._global_async_checkpointer = None
+        graph_module._global_async_checkpointer_context = None
+        graph_module._global_async_graph = None
+        graph_module._async_graph_lock = None
 
     _reset()
     monkeypatch.setenv("DATABASE_URL", str(tmp_path / "veritas-test.db"))

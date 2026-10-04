@@ -102,6 +102,7 @@ def init_db() -> None:
 # Columns added after the initial schema. ``CREATE TABLE IF NOT EXISTS`` does not
 # alter tables that already exist, so older database files are upgraded here.
 _COLUMN_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
+    ("campaigns", "error_message", "TEXT NOT NULL DEFAULT ''"),
     ("attacks", "task", "TEXT NOT NULL DEFAULT ''"),
     ("held_out_attacks", "task", "TEXT NOT NULL DEFAULT ''"),
 )

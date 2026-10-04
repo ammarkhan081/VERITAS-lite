@@ -12,6 +12,7 @@ export interface CampaignStatusResponse {
   step_count: number;
   created_at: string;
   updated_at: string | null;
+  error_message?: string | null;
 }
 
 export interface CampaignPage {

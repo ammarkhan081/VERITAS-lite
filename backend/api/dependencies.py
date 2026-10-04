@@ -21,12 +21,11 @@ def get_regression_store() -> RegressionStore:
     return RegressionStore()
 
 
-@lru_cache(maxsize=1)
-def get_graph():
-    """Return the compiled campaign graph with durable checkpoints in production."""
-    from backend.orchestration.graph import get_compiled_graph
+async def get_graph():
+    """Return the graph with an async-compatible saver for API execution."""
+    from backend.orchestration.graph import get_compiled_graph_async
 
-    return get_compiled_graph()
+    return await get_compiled_graph_async()
 
 
 def get_default_sut_config() -> dict:

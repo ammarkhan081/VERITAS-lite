@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -13,6 +14,7 @@ from langgraph.types import Command
 
 from backend.api.dependencies import get_campaign_store, get_default_sut_config, get_graph
 from backend.api.models import CampaignStatusResponse, ResumeRequest, StartCampaignRequest
+from backend.core.config import get_settings
 from backend.memory.campaign_store import CampaignStore
 from backend.memory.db import get_db
 from backend.schemas.models import CampaignRequest
@@ -20,6 +22,49 @@ from backend.schemas.models import CampaignRequest
 logger = logging.getLogger("veritas.api.campaigns")
 router = APIRouter()
 _CAMPAIGN_TASKS: dict[str, asyncio.Task] = {}
+
+
+def _require_llm_configuration() -> None:
+    """Reject campaign creation early when its configured provider has no key."""
+    settings = get_settings()
+    provider = str(settings.llm_provider).strip().lower()
+    key_by_provider = {
+        "openai": ("openai_api_key", "OPENAI_API_KEY"),
+        "anthropic": ("anthropic_api_key", "ANTHROPIC_API_KEY"),
+        "groq": ("groq_api_key", "GROQ_API_KEY"),
+    }
+    if provider not in key_by_provider:
+        raise HTTPException(
+            status_code=503,
+            detail=f"The configured LLM provider '{provider}' is not supported.",
+        )
+    setting_name, variable_name = key_by_provider[provider]
+    if not str(getattr(settings, setting_name, "")).strip():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"The {provider} API key is not configured. Add {variable_name} "
+                "to the deployment environment, then redeploy before starting a campaign."
+            ),
+        )
+
+
+def _safe_failure_message(exc: Exception) -> str:
+    """Return a short campaign error without exposing configured credentials."""
+    message = str(exc).strip() or type(exc).__name__
+    settings = get_settings()
+    for secret in (
+        settings.openai_api_key,
+        settings.anthropic_api_key,
+        settings.groq_api_key,
+        settings.database_url,
+    ):
+        if secret:
+            message = message.replace(secret, "[redacted]")
+    message = re.sub(
+        r"(?i)(postgres(?:ql)?://)[^@\s]+@", r"\1[redacted]@", message
+    )
+    return f"{type(exc).__name__}: {message}"[:1000]
 
 
 def _build_default_sut_config() -> dict:
@@ -41,6 +86,7 @@ def _campaign_status(row: dict) -> CampaignStatusResponse:
         step_count=int(row.get("total_steps") or 0),
         created_at=row["created_at"],
         updated_at=row.get("updated_at"),
+        error_message=row.get("error_message") or None,
     )
 
 
@@ -101,7 +147,7 @@ async def _run_campaign_async(
     if current_task is not None:
         _CAMPAIGN_TASKS[campaign_id] = current_task
     try:
-        graph = graph or get_graph()
+        graph = graph or await get_graph()
         initial_state = _initial_state(campaign_id, request)
         config = {"configurable": {"thread_id": campaign_id}}
         from backend.environment.adapter import environment_type_override
@@ -155,7 +201,12 @@ async def _run_campaign_async(
     except Exception as exc:
         logger.exception("Campaign %s failed", campaign_id)
         try:
-            store.update_campaign(campaign_id, status="failed", phase="failed")
+            store.update_campaign(
+                campaign_id,
+                status="failed",
+                phase="failed",
+                error_message=_safe_failure_message(exc),
+            )
         except Exception:
             logger.exception("Could not persist failure for campaign %s", campaign_id)
     finally:
@@ -169,6 +220,7 @@ async def start_campaign(
     store: CampaignStore = Depends(get_campaign_store),
 ) -> dict:
     """Create a campaign and schedule its graph execution after responding."""
+    _require_llm_configuration()
     campaign_id = store.create_campaign(
         CampaignRequest(
             sut_descriptor=request.sut_descriptor,

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     total_tokens INTEGER DEFAULT 0,
     human_interventions INTEGER DEFAULT 0,
     report TEXT,                     -- JSON: final CampaignReport
+    error_message TEXT NOT NULL DEFAULT '',
     updated_at TEXT
 );
 

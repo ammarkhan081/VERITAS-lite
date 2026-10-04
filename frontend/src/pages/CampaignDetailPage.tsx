@@ -156,8 +156,9 @@ export default function CampaignDetailPage() {
     if (!campaign || campaign.status !== "completed") return;
     const controller = new AbortController();
     void loadReport(controller.signal);
+    void loadTraces(controller.signal);
     return () => controller.abort();
-  }, [campaign?.status, loadReport, campaignId]);
+  }, [campaign?.status, loadReport, loadTraces, campaignId]);
 
   useEffect(() => {
     if (!campaign || campaign.status !== "running") {

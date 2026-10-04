@@ -4,6 +4,8 @@
 # Orchestration
 langgraph>=1.0.0
 langgraph-checkpoint-sqlite>=2.0.0
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary]>=3.2.0
 
 # LLM providers (select one via LLM_PROVIDER in .env)
 langchain-core>=0.3.0

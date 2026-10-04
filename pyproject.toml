@@ -13,6 +13,8 @@ authors = [{ name = "VERITAS-lite" }]
 dependencies = [
     "langgraph>=1.0.0",
     "langgraph-checkpoint-sqlite>=2.0.0",
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary]>=3.2.0",
     "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",
     "langchain-anthropic>=0.2.0",
@@ -43,6 +45,12 @@ pythonpath = ["."]
 asyncio_mode = "auto"
 addopts = "-ra --basetemp=.pytest_tmp"
 tmp_path_retention_policy = "all"
+
+[tool.vercel]
+entrypoint = "backend.api.main:app"
+
+[tool.vercel.scripts]
+build = "npm --prefix frontend ci && npm --prefix frontend run build"
 
 [tool.coverage.run]
 source = ["backend"]

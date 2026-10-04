@@ -15,10 +15,11 @@ application, regression storage) and the deterministic routing functions live he
 
 from __future__ import annotations
 
+import threading
 from typing import Any, Optional
 from uuid import uuid4
 
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
@@ -422,13 +423,25 @@ def build_campaign_graph(checkpointer: Optional[Any] = None) -> CompiledStateGra
     return builder.compile(checkpointer=checkpointer)
 
 
-from langgraph.checkpoint.memory import MemorySaver
-
 _global_checkpointer = None
+_global_checkpointer_context = None
+_checkpointer_lock = threading.Lock()
 
 def get_compiled_graph() -> CompiledStateGraph:
-    """Create a campaign graph backed by a memory checkpointer."""
-    global _global_checkpointer
+    """Create a graph with durable PostgreSQL or local in-memory checkpoints."""
+    global _global_checkpointer, _global_checkpointer_context
     if _global_checkpointer is None:
-        _global_checkpointer = MemorySaver()
+        with _checkpointer_lock:
+            if _global_checkpointer is None:
+                database_url = get_settings().database_url
+                if database_url.startswith(("postgres://", "postgresql://")):
+                    from langgraph.checkpoint.postgres import PostgresSaver
+
+                    _global_checkpointer_context = PostgresSaver.from_conn_string(
+                        database_url, pipeline=False
+                    )
+                    _global_checkpointer = _global_checkpointer_context.__enter__()
+                    _global_checkpointer.setup()
+                else:
+                    _global_checkpointer = MemorySaver()
     return build_campaign_graph(checkpointer=_global_checkpointer)

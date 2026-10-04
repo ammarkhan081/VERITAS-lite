@@ -27,18 +27,18 @@ def get_llm(role: str) -> "BaseChatModel":
         raise ValueError(f"Unknown LLM role {role!r}; expected one of {', '.join(model_map)}")
 
     provider = str(settings.llm_provider).lower().strip()
-    model = model_map[role]
+    model = model_map[role].strip()
     setup_hint = "Set LLM_PROVIDER=openai|anthropic|groq and the corresponding API key in .env"
     try:
         if provider == "openai":
             from langchain_openai import ChatOpenAI
-            return ChatOpenAI(model=model, temperature=0.0, api_key=settings.openai_api_key)
+            return ChatOpenAI(model=model, temperature=0.0, api_key=settings.openai_api_key.strip())
         if provider == "anthropic":
             from langchain_anthropic import ChatAnthropic
-            return ChatAnthropic(model=model, temperature=0.0, api_key=settings.anthropic_api_key)
+            return ChatAnthropic(model=model, temperature=0.0, api_key=settings.anthropic_api_key.strip())
         if provider == "groq":
             from langchain_groq import ChatGroq
-            return ChatGroq(model=model, temperature=0.0, api_key=settings.groq_api_key, max_retries=10, timeout=60.0)
+            return ChatGroq(model=model, temperature=0.0, api_key=settings.groq_api_key.strip(), max_retries=10, timeout=60.0)
     except ImportError as exc:
         raise ValueError(f"LLM provider package for {provider!r} is not installed. {setup_hint}") from exc
     except Exception as exc:

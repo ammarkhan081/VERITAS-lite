@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import threading
+from typing import Any
 
-from backend.memory.db import get_db, init_db
+from backend.memory.db import get_db, init_db, uses_postgres
 from backend.schemas.models import (
     Attack,
     AttackFamily,
@@ -147,10 +147,10 @@ class RegressionStore:
             )
         conn = get_db()
         rows = conn.execute(
-            """
+            f"""
             SELECT * FROM held_out_attacks
             WHERE campaign_id = ?
-            ORDER BY RANDOM()
+            ORDER BY {"random()" if uses_postgres() else "RANDOM()"}
             LIMIT ?
             """,
             (campaign_id, n),
@@ -183,7 +183,7 @@ class RegressionStore:
             )
             conn.commit()
 
-    def _attack_from_held_out_row(self, row: sqlite3.Row) -> Attack:
+    def _attack_from_held_out_row(self, row: Any) -> Attack:
         """Reconstruct an Attack from a ``held_out_attacks`` row."""
         return Attack(
             id=row["id"],

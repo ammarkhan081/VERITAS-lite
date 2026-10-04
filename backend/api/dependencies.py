@@ -23,7 +23,7 @@ def get_regression_store() -> RegressionStore:
 
 @lru_cache(maxsize=1)
 def get_graph():
-    """Return the compiled campaign graph backed by the SQLite checkpointer."""
+    """Return the compiled campaign graph with durable checkpoints in production."""
     from backend.orchestration.graph import get_compiled_graph
 
     return get_compiled_graph()

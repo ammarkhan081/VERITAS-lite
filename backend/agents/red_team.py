@@ -311,6 +311,8 @@ def _run_attacks(
         if remaining is not None and int(remaining) <= len(newly_executed):
             logger.info("Attack execution stopped because the campaign step budget is exhausted")
             break
+        import time
+        time.sleep(3.5)
         try:
             trace = _trace_from_execution(env, attack, state, phase)
             store.save_trace(trace)

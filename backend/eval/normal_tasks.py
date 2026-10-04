@@ -188,6 +188,7 @@ def _run_suite(state: CampaignState, after_patch: bool) -> dict:
     traces: list[dict] = []
     campaign_id = str(state.get("campaign_id", "unknown"))
 
+    import time
     for task_spec in NORMAL_TASKS:
         task_config = _build_task_config(state.get("sut_config", {}) or {}, task_spec)
         task_config["campaign_id"] = campaign_id
@@ -198,6 +199,7 @@ def _run_suite(state: CampaignState, after_patch: bool) -> dict:
         store = CampaignStore()
         write_trace(trace, store)
         traces.append(trace.model_dump(mode="json"))
+        time.sleep(3.5)  # Rate limit cooldown for Groq and other providers
 
     accuracy = sum(task_results) / len(task_results) if task_results else 0.0
     event_type = "normal_suite_post_patch_complete" if after_patch else "baseline_complete"

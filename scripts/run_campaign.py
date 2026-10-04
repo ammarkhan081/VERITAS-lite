@@ -60,7 +60,7 @@ async def _run(args: argparse.Namespace) -> int:
     base_url = args.api_url.rstrip("/")
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
         try:
-            response = await client.post("/campaigns", json=_payload(args))
+            response = await client.post("/api/campaigns", json=_payload(args))
             response.raise_for_status()
         except httpx.HTTPError as exc:
             print(f"Could not start campaign: {exc}")
@@ -70,7 +70,7 @@ async def _run(args: argparse.Namespace) -> int:
 
         while True:
             try:
-                status_response = await client.get(f"/campaigns/{campaign_id}")
+                status_response = await client.get(f"/api/campaigns/{campaign_id}")
                 status_response.raise_for_status()
             except httpx.HTTPError as exc:
                 print(f"Could not read campaign status: {exc}")
@@ -85,7 +85,7 @@ async def _run(args: argparse.Namespace) -> int:
             await asyncio.sleep(5)
 
         if status["status"] == "completed":
-            report_response = await client.get(f"/campaigns/{campaign_id}/report")
+            report_response = await client.get(f"/api/campaigns/{campaign_id}/report")
             if report_response.is_success:
                 print(report_response.json().get("summary", "Campaign completed."))
             return 0

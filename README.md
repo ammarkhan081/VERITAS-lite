@@ -4,6 +4,24 @@
 
 VERITAS-lite runs attacks against a system under test (SUT), verifies behavior with deterministic gates, proposes defenses, then checks attack resistance and normal-task utility again.
 
+## Pak Angels Final (2nd) Hackathon
+
+VERITAS-lite is a team project for the **Pak Angels Final (2nd) Hackathon**. The event build window is **02 October 2026, 8:00 PM PKT – 04 October 2026, 11:59 PM PKT**. The project focuses on a practical question for AI systems: can a security evaluation be run, measured, and reviewed with evidence that makes its outcome clear?
+
+### Team
+
+| Role | Name |
+| --- | --- |
+| Team Leader | Ammar Ayaz |
+| Team Member | Fatima Shahzad |
+| Team Member | Muhsin Shah |
+| Team Member | Areeba Khan |
+
+### Hackathon links
+
+- [Hackathon team-leader registration form](https://forms.gle/XRU9BpHDnjC8J1Sv8)
+- [Registered hackathon projects](https://docs.google.com/spreadsheets/d/1Vobn8HwsXb5O_ggpnmECT9tTb3UawS9tH6kxYt3zCD0/edit?usp=sharing)
+
 ## Architecture
 
 ```text

@@ -38,7 +38,7 @@ def get_llm(role: str) -> "BaseChatModel":
             return ChatAnthropic(model=model, temperature=0.0, api_key=settings.anthropic_api_key)
         if provider == "groq":
             from langchain_groq import ChatGroq
-            return ChatGroq(model=model, temperature=0.0, api_key=settings.groq_api_key)
+            return ChatGroq(model=model, temperature=0.0, api_key=settings.groq_api_key, max_retries=10, timeout=60.0)
     except ImportError as exc:
         raise ValueError(f"LLM provider package for {provider!r} is not installed. {setup_hint}") from exc
     except Exception as exc:
